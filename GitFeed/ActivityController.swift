@@ -117,11 +117,11 @@ class ActivityController: UITableViewController {
 //            }
 //            .map { [weak self] (url) -> URLRequest in
 //                var request = URLRequest(url: url)
-//                
+//
 //                if let modifiedHeader = self?.lastModified.value {
 //                    request.addValue(modifiedHeader as String, forHTTPHeaderField: "Last-Modified")
 //                }
-//                
+//
 //                return request
 //            }
 //            .flatMap { (request) -> Observable<(response: HTTPURLResponse, data: Data)> in
@@ -191,9 +191,8 @@ class ActivityController: UITableViewController {
         
         DispatchQueue.main.async {
             self.tableView.reloadData()
+            self.refreshControl?.endRefreshing()
         }
-        
-        refreshControl?.endRefreshing()
         
         let eventsArray = updatedEvents.map({ $0.dictionary }) as NSArray
         eventsArray.write(to: eventsFileURL, atomically: true)
