@@ -67,13 +67,33 @@ class ActivityController: UITableViewController {
     @objc func refresh() {
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let strongSelf = self else { return }
-            strongSelf.fetchEvents(repo: strongSelf.repo)
+            
+            DispatchQueue.main.async {
+                strongSelf.fetchEvents(repo: strongSelf.repo)
+            }
         }
     }
     
     func fetchEvents(repo: String) {
         
-        let response = Observable.from([repo])
+        let swiftURL = "https://api.github.com/search/repositories?q=language:swift&per_page=5"
+        
+        let response = Observable.from([swiftURL])
+            .map { (urlString) -> URL in
+                return URL(string: urlString)!
+            }
+            .map { (url) -> URLRequest in
+                return URLRequest(url: url)
+            }
+            .flatMap { (request) -> Observable<Any> in
+                return URLSession.shared.rx.json(request: request)
+            }
+            .flatMap { (response) -> Observable<String> in
+                guard let response = response as? [String: Any], let items = response["items"] as? [[String: Any]] else {
+                    return Observable.empty()
+                }
+                return Observable.from(items.map({ $0["full_name"] as! String }))
+            }
             .map { (urlString) -> URL in
                 return URL(string: "https://api.github.com/repos/\(urlString)/events")!
             }
@@ -90,6 +110,24 @@ class ActivityController: UITableViewController {
                 return URLSession.shared.rx.response(request: request)
             }
             .share(replay: 1, scope: .whileConnected)
+        
+//        let response = Observable.from([repo])
+//            .map { (urlString) -> URL in
+//                return URL(string: "https://api.github.com/repos/\(urlString)/events")!
+//            }
+//            .map { [weak self] (url) -> URLRequest in
+//                var request = URLRequest(url: url)
+//                
+//                if let modifiedHeader = self?.lastModified.value {
+//                    request.addValue(modifiedHeader as String, forHTTPHeaderField: "Last-Modified")
+//                }
+//                
+//                return request
+//            }
+//            .flatMap { (request) -> Observable<(response: HTTPURLResponse, data: Data)> in
+//                return URLSession.shared.rx.response(request: request)
+//            }
+//            .share(replay: 1, scope: .whileConnected)
         
         response
             .filter { (response, _) -> Bool in
@@ -151,7 +189,9 @@ class ActivityController: UITableViewController {
         
         events.value = updatedEvents
         
-        tableView.reloadData()
+        DispatchQueue.main.async {
+            self.tableView.reloadData()
+        }
         
         refreshControl?.endRefreshing()
         
